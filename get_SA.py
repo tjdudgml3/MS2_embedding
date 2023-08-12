@@ -51,7 +51,7 @@ def get_SA(spec1 : list, spec2 : list)->float:
     # print(f"SA matched pick length = {len(matched_vector1)}")
     return SA_score
 
-def get_modified_SA(spec1 : list, spec2 : list, modified_mass)->float:
+def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=2)->float:
     mass_tolerance = 0.05
     spec1_length = len(spec1)
     spec2_length = len(spec2)
@@ -93,7 +93,7 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass)->float:
             mz1 = 0
             # print("modifiedamss + mz1 i less than 0")
         else:
-            mz1 -= modified_mass
+            mz1 -= modified_mass/charge
         mz2, int2 = spec2[idx2]
         if abs(mz1 - mz2) <= mass_tolerance and int1 not in matched_vector1:
             matched_vector1.append(int1)
@@ -101,6 +101,11 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass)->float:
             idx1 += 1
             idx2 += 1
         elif abs(mz1-mz2) <= mass_tolerance and int1 in matched_vector1:
+            #greedy하게 더 높은 픽을 가져감.
+            if matched_vector2[matched_vector1.index(int1)] * int1 < int2*int1:
+                matched_vector2[matched_vector1.index(int1)] = int2
+                print("greedy")
+                
             idx1 += 1
             idx2 += 1
         elif mz1 > mz2:
@@ -121,16 +126,17 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass)->float:
     # print(f"modified SA matched pick length = {len(matched_vector1)}")
     return SA_score
 
+# exit()
     
 #SA를 같은 representative seqeunce의 모임에서 SA를 pair wise하게 구함
 # grpup 1 unmodified seqeunce 끼리, group2 unmodified sequence끼리
 # 그 이후에 SA들의 평균값을 취한뒤에 SA_mean_group1/2 컬럼 두개를 생성
 
-all_mgf = []
-with open("mgf.pkl", "rb") as f:
-    all_mgf = pickle.load(f)
-print(len(all_mgf[0][0]))
-print(len(all_mgf))
+# all_mgf = []
+# with open("mgf.pkl", "rb") as f:
+#     all_mgf = pickle.load(f)
+# print(len(all_mgf[0][0]))
+# print(len(all_mgf))
 # exit()
 # path = "./MS2_embedding/hek293_mgf/"
 # file_list = os.listdir(path)
@@ -158,7 +164,7 @@ print(len(all_mgf))
 # with open("mgf.pkl", "wb") as f:
 #     pickle.dump(all_mgf, f)
 # exit()
-
+# exit()
 def get_spectrum(spec1_path, spec1_idx):
     spec1_path = spec1_path.split("\/")[-1]
     spec1_path = spec1_path.split("_")[4]
@@ -293,4 +299,4 @@ def get_pair_wise_SA():
             f.write(f"{a[0]},{a[1]},{a[2]},{a[3]},{a[4]},{a[5]},{a[6]},{a[7]},{a[8]},{a[9]}\n")
                    
         
-get_pair_wise_SA()
+# get_pair_wise_SA()
