@@ -51,7 +51,7 @@ def get_SA(spec1 : list, spec2 : list)->float:
     # print(f"SA matched pick length = {len(matched_vector1)}")
     return SA_score
 
-def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=2)->float:
+def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=1)->float:
     mass_tolerance = 0.05
     spec1_length = len(spec1)
     spec2_length = len(spec2)
@@ -67,7 +67,7 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=2)->float:
     #spectrum size for normalization
     size1 = np.sqrt(sum([intensity[1]**2 for intensity in spec1]))
     size2 = np.sqrt(sum([intensity[1]**2 for intensity in spec2]))
-    
+    # used_mz2_list = []
     while(idx1 < spec1_length and idx2 < spec2_length):
         
         mz1, int1 = spec1[idx1]
@@ -75,6 +75,7 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=2)->float:
         if abs(mz1 - mz2) <= mass_tolerance:
             matched_vector1.append(int1)
             matched_vector2.append(int2)
+            # used_mz2_list.append(mz2)
             idx1 += 1
             idx2 += 1
         elif mz1 > mz2:
@@ -98,13 +99,43 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=2)->float:
         if abs(mz1 - mz2) <= mass_tolerance and int1 not in matched_vector1:
             matched_vector1.append(int1)
             matched_vector2.append(int2)
+            # used_mz2_list.append(mz2)
             idx1 += 1
             idx2 += 1
         elif abs(mz1-mz2) <= mass_tolerance and int1 in matched_vector1:
             #greedy하게 더 높은 픽을 가져감.
             if matched_vector2[matched_vector1.index(int1)] * int1 < int2*int1:
                 matched_vector2[matched_vector1.index(int1)] = int2
-                print("greedy")
+                # print("greedy")
+                
+            idx1 += 1
+            idx2 += 1
+        elif mz1 > mz2:
+            idx2 += 1
+        else:
+            idx1 += 1
+            
+    #find modified matching peak by mass shift charge = 2
+    idx1 = 0
+    idx2 = 0
+    while(idx1 < spec1_length and idx2 < spec2_length):
+        mz1, int1 = spec1[idx1]
+        if mz1 - modified_mass < 0:
+            mz1 = 0
+            # print("modifiedamss + mz1 i less than 0")
+        else:
+            mz1 -= modified_mass/2
+        mz2, int2 = spec2[idx2]
+        if abs(mz1 - mz2) <= mass_tolerance and int1 not in matched_vector1:
+            matched_vector1.append(int1)
+            matched_vector2.append(int2)
+            idx1 += 1
+            idx2 += 1
+        elif abs(mz1-mz2) <= mass_tolerance and int1 in matched_vector1:
+            #greedy하게 더 높은 픽을 가져감.
+            if matched_vector2[matched_vector1.index(int1)] * int1 < int2*int1:
+                matched_vector2[matched_vector1.index(int1)] = int2
+                # print("greedy")
                 
             idx1 += 1
             idx2 += 1
@@ -132,11 +163,11 @@ def get_modified_SA(spec1 : list, spec2 : list, modified_mass, charge=2)->float:
 # grpup 1 unmodified seqeunce 끼리, group2 unmodified sequence끼리
 # 그 이후에 SA들의 평균값을 취한뒤에 SA_mean_group1/2 컬럼 두개를 생성
 
-# all_mgf = []
-# with open("mgf.pkl", "rb") as f:
-#     all_mgf = pickle.load(f)
-# print(len(all_mgf[0][0]))
-# print(len(all_mgf))
+all_mgf = []
+with open("./MS2_embedding/data/SA/mgf.pkl", "rb") as f:
+    all_mgf = pickle.load(f)
+print(len(all_mgf[0][0]))
+print(len(all_mgf))
 # exit()
 # path = "./MS2_embedding/hek293_mgf/"
 # file_list = os.listdir(path)
@@ -209,9 +240,9 @@ def get_pair_wise_SA():
                 SA_mean2 = -1
                 SA_mean3 = -1
                 SA_mean4 = -1            
-                if df.loc[query_idx]["modified_mass"] == 0:
+                if df.loc[query_idx]["ModificationAnnotation"] is np.nan:
                     for cal_idx in range(start_idx, end_idx):
-                        if df.loc[cal_idx]["modified_mass"] == 0:
+                        if df.loc[cal_idx]["ModificationAnnotation"] is np.nan:
                             
                             if cal_idx == query_idx:
                                 continue
@@ -228,22 +259,36 @@ def get_pair_wise_SA():
                 #query가 modified라면
                 else:
                     for cal_idx in range(start_idx, end_idx):
-                        if df.loc[cal_idx]["modified_mass"] == 0:
+                        #cal peptide 가 modified가 아닐때 : mod - umod 비교
+                        if df.loc[cal_idx]["ModificationAnnotation"] is np.nan:
                             if cal_idx == query_idx:
                                 continue
+                            
+                            # if i > 600:
+                            #     print(df.loc[query_idx]["Peptide"])
+                            #     print(df.loc[cal_idx]["Peptide"])
                             spec1 = get_spectrum(df.loc[query_idx]["SpectrumFile"], df.loc[query_idx]["Index"])
                             spec2 = get_spectrum(df.loc[cal_idx]["SpectrumFile"], df.loc[cal_idx]["Index"])
-                            # print("---------------------start")
-                            SA_mod_list.append(get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"])) #
+                            # print("---------------------start")        
+                            if "C+" in df.loc[query_idx]["Peptide"]:
+                                if get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"]-57.021) >get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"]):
+                                    SA_mod_list.append(get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"]-57.021))
+                                else:
+                                    SA_mod_list.append(get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"]))
+                            else:
+                                SA_mod_list.append(get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"])) #
                             # SA_list.append(df.loc[query_idx]["Peptide"])
                             SA_list.append(get_SA(spec1, spec2))
                             # print("---------------------end")
+                        # mod-mod 비교
                         else:
                             if cal_idx == query_idx:
                                 continue
                             if df.loc[query_idx]["Peptide"] == df.loc[cal_idx]["Peptide"]:
                                 spec1 = get_spectrum(df.loc[query_idx]["SpectrumFile"], df.loc[query_idx]["Index"])
                                 spec2 = get_spectrum(df.loc[cal_idx]["SpectrumFile"], df.loc[cal_idx]["Index"])
+                                # if df.loc[query_idx]["ModificationAnnotation"] is not np.nan:
+                                    
                                 # print("---------------------start with mod")
                                 SA_same_mod_list_mod.append(get_modified_SA(spec1, spec2, df.loc[query_idx]["modified_mass"])) #
                                 # SA_list.append(df.loc[query_idx]["Peptide"])
@@ -291,7 +336,7 @@ def get_pair_wise_SA():
             start_idx = i
         # if len(result) > 5:
         #     print(i, result[-4:])
-        if i % 10000 == 0:
+        if i % 1000 == 0:
             print(i)
     with open("SA_mean.txt", "w") as f:
         f.write("mod,SA,SA_mod,SA_same_mod,SA_same_mod_with_mod,idx,rand,rand_SA,rand_idx,start_idx\n")
@@ -299,4 +344,4 @@ def get_pair_wise_SA():
             f.write(f"{a[0]},{a[1]},{a[2]},{a[3]},{a[4]},{a[5]},{a[6]},{a[7]},{a[8]},{a[9]}\n")
                    
         
-# get_pair_wise_SA()
+get_pair_wise_SA()
