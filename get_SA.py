@@ -321,7 +321,6 @@ def get_pair_wise_SA():
                 query_mass = df.loc[query_idx]["ObservedMW"]
                 
                 df_new = df.loc[abs(df["ObservedMW"] - query_mass) < 350,["idx"]]
-                print(df_new.shape, df.shape)
                 rand_idx = df_new.sample(n=1)["idx"].item()
                 
                 spec1 = get_spectrum(df.loc[query_idx]["SpectrumFile"], df.loc[query_idx]["Index"])
